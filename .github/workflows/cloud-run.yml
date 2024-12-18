@@ -1,41 +1,54 @@
-name: Build and Deploy to Cloud Run
-
+name: Cloud-appDeploy-Action
 
 on:
   push:
     branches:
-    - master
+      - main
 
 env:
-  PROJECT_ID: ${{ secrets.RUN_PROJECT }}
-  RUN_REGION: us-central1
-  SERVICE_NAME: helloworld-python
+  PROJECT_ID: psychic-mason-441318-s7
+  REGION: us-central1
+  # project-name but it can be anything you want
+  IMAGE_NAME: test-deploy
+  REPO_NAME: cloud-deploy
+  SERVICE_NAME: test-deploy
 
 jobs:
-  setup-build-deploy:
+  build-and-deploy:
     name: Setup, Build, and Deploy
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    # Setup gcloud CLI/SDK
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
+      # Authenticate with Google Cloud
+      - id: "auth"
+        uses: "google-github-actions/auth@v2"
+        with:
+          credentials_json: "${{ secrets.RUN_SA_KEY }}"
 
-    # Build and push image to Google Container Registry
-    - name: Build
-      run: |-
-        gcloud builds submit \
-          --quiet \
-          --tag "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA"
-    # Deploy image to Cloud Run
-    - name: Deploy
-      run: |-
-        gcloud run deploy "$SERVICE_NAME" \
-          --quiet \
-          --region "$RUN_REGION" \
-          --image "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA" \
+      # Setup gcloud CLI/SDK
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Authenticate and Build 
+        run: |-
+          gcloud auth configure-docker us-docker.pkg.dev --quiet
+          docker build -t us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:latest .
+
+      - name: Authenticate Docker
+        run: |-
+          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://us-docker.pkg.dev
+
+      - name: Tagging and Pushing Docker Image to Artifact Registry
+        run: |-
+          docker tag us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:latest us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME
+          docker push us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME
+
+      - name: Deploy
+        run: |-
+          gcloud run deploy $SERVICE_NAME \
+          --region $REGION \
+          --image us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME \
           --platform "managed" \
-          --allow-unauthenticated
+          --quiet
