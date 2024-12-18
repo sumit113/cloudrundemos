@@ -11,7 +11,7 @@ env:
   # project-name but it can be anything you want
   IMAGE_NAME: test-deploy
   REPO_NAME: cloud-deploy
-  SERVICE_NAME: test-deploy
+  SERVICE_NAME: tst-deploy
 
 jobs:
   build-and-deploy:
