@@ -3,7 +3,7 @@ name: Cloud-appDeploy-Action
 on:
   push:
     branches:
-      - main
+      - master
 
 env:
   PROJECT_ID: psychic-mason-441318-s7
